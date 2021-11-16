@@ -6,3 +6,7 @@ and https://www.kaggle.com/rounakbanik/the-movies-dataset?select=movies_metadata
 This repository investigates data about English Language IMDB Movies
 
 The guiding question is what factors lead to highly rated movies?
+
+Kelly:
+
+Sentiment analysis on overview of top rated 100 IMDB movies

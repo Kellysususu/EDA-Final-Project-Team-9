@@ -1,0 +1,64 @@
+---
+title: "sentiment_analysis"
+author: "Kelly Chen"
+date: "11/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(tidytext)
+library(ggplot2)
+library(textdata)
+library(assertr)
+```
+
+```{r}
+data<-read_csv("IMDb movies.csv")
+
+#Test if imdb_id is unqiue for each movie
+data %>%
+  assert(is_uniq,imdb_title_id)
+
+# Filter data
+data<-data %>%
+  filter(country=="USA",avg_vote>8) %>%
+  select(imdb_title_id,title,description, avg_vote)
+
+```
+
+```{r}
+
+# Tokenize lines
+des_words<-data %>%
+select(imdb_title_id,description) %>%
+unnest_tokens(word,description)
+
+# remove stop words
+des_words<-des_words %>%
+  anti_join(stop_words)
+
+# create counts
+counts<-des_words %>% count(word,sort = TRUE)
+count<-head(counts,13)
+
+#Plot of words with most use
+ggplot(count,aes(x=reorder(word,-n),y=n))+geom_bar(stat="identity",fill="#6495ed")+theme_light()+theme(axis.text.x =element_text(angle=60,hjust=1))+labs(title="Most Common Description words in high-rated movies",x="Words",y="Count")+theme_classic()
+```
+
+# Sentiment analysis
+
+```{r}
+sentiments<-get_sentiments("nrc")
+df_sentiments<-des_words %>% left_join(sentiments)
+df_sentiments_filtered<-df_sentiments %>% filter(!is.na(sentiment))%>%group_by(sentiment)%>%summarise(n=n())
+df_sentiments_filtered %>%
+  ggplot(aes(x=reorder(sentiment,-n),y=n))+geom_bar(stat="identity",fill="#6495ed")+labs(title="Top rated Movies Sentiments",x="Words",y="Count")+theme_light()+theme(axis.text.x = element_text(angle=60,hjust=1))+theme_classic()
+```
+

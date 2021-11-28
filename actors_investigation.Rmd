@@ -1,17 +1,17 @@
 ---
 title: "Actors Investigation"
-output: html_notebook
+author: "Henry Savich"
+output: github_document
 ---
 
 In this notebook we are going to look at data from the IMDB movie dataset sourced from kaggle to determine if there is a relationship between actors/actresses and movie ratings
 
 ```{r}
-library(tidyverse) #For convenient data frame manipulation
-library(lubridate) #For conveniently handling dates (birthdays, release dates)
-library(ggplot2) #For visualizing the data
+suppressPackageStartupMessages(library(tidyverse)) #For convenient data frame manipulation
+suppressPackageStartupMessages(library(ggplot2)) #For visualizing the data
 ```
 
-IMDb title_principals lists every occurence of an actor/actress in a movie
+IMDb title_principals lists every occurrence of an actor/actress in a movie
 
 ```{r}
 tp = read_csv("data/IMDb\ title_principals.csv") %>%
@@ -54,7 +54,7 @@ ggplot(freq_df, aes(x = n)) +
 
 From this we learn:
 
--The actor/actress with the most English-language titles on IMDB has 132
+-The actor/actress with the most English-language titles on IMDB has 132 (John Wayne)
 -The mean number of English-language titles is 2.58
 -The median number of titles is 1, which means most of our actors/actresses only appear in one title
 
@@ -68,9 +68,7 @@ for(i in threshold){
   num_actors[i-1] = sum(freq_df$n >= i)
 }
 
-df0 = data.frame(threshold = threshold, num_actors = num_actors)
-
-ggplot(df0, aes(x = threshold, y = num_actors)) +
+ggplot(data.frame(threshold = threshold, num_actors = num_actors), aes(x = threshold, y = num_actors)) +
   geom_line() +
   geom_hline(yintercept = 1000, color = "red")
 
@@ -87,8 +85,100 @@ tp3 = left_join(tp2, freq_df, by = "imdb_name_id") %>%
 Now we add in the actual names from IMDb names.csv and our actors/actresses dataframe is complete!
 
 ```{r}
-people = read_csv("data/IMDb\ names.csv") %>%
-  select(imdb_name_id, name) %>% 
-  right_join(tp3, by = "imdb_name_id")
+id_to_names = read_csv("data/IMDb\ names.csv") %>%
+  select(imdb_name_id, name)
+
+people = left_join(tp3, id_to_names, by = "imdb_name_id")
 ```
 
+# Actors Correlations with Ratings
+
+The meat of this investigation will involve looking at how different actors effect the distribution of ratings of a movie.
+
+The IMDb rating scale is 1-10, and we have a choice of how we want to look at rating. We'll start by using the avg_vote column in IMDb movies.csv
+
+ˆ
+```{r}
+people = read_csv("data/IMDb\ movies.csv") %>%
+  select(imdb_title_id, avg_vote, votes) %>%
+  right_join(people, by = "imdb_title_id")
+```
+
+We could run into trouble here if some movies have a very small number of votes, as that would mean avg_vote would be very variable from a real representation of audience response.
+Let's look at how num_votes is distributed:
+
+```{r}
+english_mv = read_csv("data/IMDb\ movies.csv") %>%
+  filter(str_detect(language, "English"))
+
+num_votes = english_mv$votes
+
+sprintf("There are %d English-language movies", length(num_votes))
+sprintf("The max number of votes is %d.", max(num_votes))
+sprintf("The min number of votes is %d.", min(num_votes))
+sprintf("The mean number of votes is %f.", mean(num_votes))
+sprintf("The median number of votes is %d.", median(num_votes))
+
+l100 = sum(num_votes < 100)
+sprintf("There are %d movies with less than 100 votes, which is %f of movies",
+        l100, l100/length(num_votes))
+
+l1000 = sum(num_votes < 1000)
+sprintf("There are %d movies with less than 1000 votes, which is %f of movies",
+        l1000, l1000/length(num_votes))
+
+hist(num_votes)
+```
+The distribution is so right skewed, that with the default parameters, the histogram doesn't tell us much.
+
+It looks like only movies with 99 or more ratings are included in the dataset, so we can go ahead without filtering movies with too few ratings.
+
+```{r}
+actor_ratings = people %>%
+  group_by(imdb_name_id) %>%
+  summarize(avg_rating = mean(avg_vote), vote_var = var(avg_vote)) %>%
+  left_join(id_to_names, by = "imdb_name_id") %>%
+  left_join(freq_df, by = "imdb_name_id")
+
+hist(actor_ratings$avg_rating)
+```
+
+We get to see some interesting stats now by looking at the actor_ratings table!
+
+The actor with the worst average rating is Joe Estevez (Charlie Sheen's uncle), who is credited in 23 movies with an average rating of 3.92.
+
+The actor with the highest average rating is Leonardo DiCaprio,who is credited in 27 movies with an average rating of 7.36
+
+```{r}
+sprintf("The average average rating is %f", mean(actor_ratings$avg_rating))
+sprintf("The median average rating is %f", median(actor_ratings$avg_rating))
+```
+
+The average and median are pretty close, but the distribution is definitely slightly left-skewed (by people like Joe Estevez).
+
+To see how strong the correlation between actor and avg_rating is, let's do a simulation of if each actor just starred in as many random movies.
+
+```{r}
+avg_ratings = actor_ratings$avg_rating
+n = actor_ratings$n
+sim_avg_ratings = rep(0, length(n))
+movie_ratings = english_mv$avg_vote
+for(i in 1:length(n)){
+  sim_avg_ratings[i] = mean(sample(movie_ratings, n[i]))
+}
+
+hist(sim_avg_ratings)
+```
+
+Let's compare this distribution to the actual distribution of avg_ratings:
+
+```{r}
+compare_sim = data.frame(actual = actor_ratings$avg_rating, sim = sim_avg_ratings) %>%
+  pivot_longer(c(actual, sim), names_to = "type")
+
+ggplot(compare_sim, aes(x=value, fill=type)) +
+    geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity') +
+    scale_fill_manual(values=c("#12C734", "#050399"))
+```
+
+We can see the distributions look very different! We can conclude there is a strong correlation between actors and movie_ratings.

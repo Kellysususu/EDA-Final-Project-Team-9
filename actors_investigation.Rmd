@@ -1,0 +1,94 @@
+---
+title: "Actors Investigation"
+output: html_notebook
+---
+
+In this notebook we are going to look at data from the IMDB movie dataset sourced from kaggle to determine if there is a relationship between actors/actresses and movie ratings
+
+```{r}
+library(tidyverse) #For convenient data frame manipulation
+library(lubridate) #For conveniently handling dates (birthdays, release dates)
+library(ggplot2) #For visualizing the data
+```
+
+IMDb title_principals lists every occurence of an actor/actress in a movie
+
+```{r}
+tp = read_csv("data/IMDb\ title_principals.csv") %>%
+  #the dataframe also includes writers, directors, cinmetographers etc., so
+  #we'll filter to only get actors/actresses
+  filter(category == "actor" | category == "actress") %>%
+  select(imdb_title_id, imdb_name_id, category, characters)
+```
+
+```{r}
+length(unique(tp$imdb_name_id))
+```
+
+Our dataset contains 132,123 actors / actresses. However, since we only want to look at English movies, we will need to add that information from another csv in order to filter.
+
+```{r}
+mv = read_csv("data/IMDb\ movies.csv") %>%
+  select(imdb_title_id, language)
+
+tp2 = left_join(tp, mv, by = "imdb_title_id") %>%
+  filter(str_detect(language, "English"))
+
+length(unique(tp2$imdb_name_id))
+```
+
+So out of the 132,123 actors/actresses in the database, 74,663 have acted in English language movies (56.5% of actors/actresses).
+
+Let's now look at how many movies these actors/actresses were in.
+
+```{r}
+freq_df = count(tp2, imdb_name_id)
+
+max(freq_df$n)
+mean(freq_df$n)
+median(freq_df$n)
+
+ggplot(freq_df, aes(x = n)) +
+  geom_histogram(bins = 100)
+```
+
+From this we learn:
+
+-The actor/actress with the most English-language titles on IMDB has 132
+-The mean number of English-language titles is 2.58
+-The median number of titles is 1, which means most of our actors/actresses only appear in one title
+
+Because we want to see distributions of ratings of movies for an individual actor, it doesn't make sense to try and gather information from an actor with only 1 movie, and for a small enough number of movies, the distribution of ratings won't really reflect the actor/actress, so we want to establish some cutoff number of movies. Let's look at how many actors/actresses we have that meet a given threshold:
+
+```{r}
+
+threshold = 2:100
+num_actors = rep(0, 99)
+for(i in threshold){
+  num_actors[i-1] = sum(freq_df$n >= i)
+}
+
+df0 = data.frame(threshold = threshold, num_actors = num_actors)
+
+ggplot(df0, aes(x = threshold, y = num_actors)) +
+  geom_line() +
+  geom_hline(yintercept = 1000, color = "red")
+
+sum(freq_df$n >= 20)
+```
+
+If we decide we want to have at least 1,000 actors/actresses to look at, the threshold can be at most 23 films. 20 seems like a good round number to use as the threshold. This will leave us with 1424 people.
+
+```{r}
+tp3 = left_join(tp2, freq_df, by = "imdb_name_id") %>%
+  filter(n >= 20)
+```
+
+Now we add in the actual names from IMDb names.csv and our actors/actresses dataframe is complete!
+
+```{r}
+people = read_csv("data/IMDb\ names.csv") %>%
+  select(imdb_name_id, name) %>% 
+  right_join(tp3, by = "imdb_name_id")
+```
+

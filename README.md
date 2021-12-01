@@ -7,6 +7,3 @@ This repository investigates data about English Language IMDB Movies
 
 The guiding question is what factors lead to highly rated movies?
 
-Kelly:
-
-Sentiment analysis on overview of top rated 100 IMDB movies

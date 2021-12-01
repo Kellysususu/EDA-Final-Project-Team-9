@@ -15,20 +15,19 @@ library(priceR)
 ```
 
 
-I will first load in the movie data. For this investigation, I will only be looking at movies made in the United States. I can also only analyze the movies that actually have data on their budget. 
+I will first load in the movie data. For this investigation, I will only be looking at movies made in the United States that have budget data in USD. I can also only analyze the movies that actually have data on their budget. 
 
 ```{r}
 movies <- read_csv("IMDb_movies.csv") %>%
-  filter(country == "USA" & budget != "")
+  filter(str_detect(country, "USA") & str_detect(budget, "\\$") & budget != "")
 ```
 
-This gives us 10,488 movies that have data on their budget. Next, I need to do some data cleaning in order to be able to analyze the budgets. The budget data in the raw excel starts with a currency sign, so I must first filter for USD, then get rid of the $ and convert the string to numeric. I will also select the columns I need and convert to numeric types where needed.
+This gives us 13,399 movies that have data on their budget. Next, I need to do some data cleaning in order to be able to analyze the budgets. The budget data in the raw excel starts with a currency sign, so I must first filter for USD, then get rid of the $ and convert the string to numeric. I will also select the columns I need and convert to numeric types where needed.
 
 ```{r}
 budgets <- movies %>%
-  filter(str_detect(budget, "\\$")) %>%
   mutate(budget = as.numeric(gsub("\\$", "", budget)), duration = as.numeric(duration)) %>%
-  select(original_title, year, budget, avg_vote, duration, worlwide_gross_income) %>%
+  select(imdb_title_id, original_title, year, budget, avg_vote, duration, worlwide_gross_income) %>%
   arrange(desc(budget))
 ```
 
@@ -38,7 +37,7 @@ When looking at historical data on money, its important to consider inflation ad
 ```{r}
 mean(budgets$year)
 ```
-The mean year for the movie data is 1991, so we definitely have data on a lot of old movies that need to have adjusted budgets.
+The mean year for the movie data is 1994, so we definitely have data on a lot of old movies that need to have adjusted budgets.
 
 ```{r}
 budgets <- budgets %>%
@@ -47,19 +46,21 @@ budgets <- budgets %>%
 ```
 
 ```{r}
-ggplot(budgets, aes(adj_budget, avg_vote)) + 
+ggplot(budgets, aes(adj_budget, avg_vote, lty = '0.274')) + 
   geom_point() + 
-  geom_smooth(method="lm", se=FALSE) +
+  geom_smooth(method="lm", se=FALSE,) +
   labs(title = "Relationship between Budget and Movie Rating",
        x="Inflation Adjusted Budget",
        y="Rating") +
   scale_x_continuous(labels=scales::dollar_format()) +
-  theme_bw()
+  theme_bw() +  
+  scale_linetype('Correlation') +
+  theme(legend.key.width = unit(2, 'cm'))
 
 cor(budgets$adj_budget, budgets$avg_vote)
 ```
 
-As you can see from the graph, there is a positive relationship between adjusted budget and movie rating. The correlation coefficient is 0.275, indicating that there is a positive relationship, albeit not an overly strong one. There is an overabundance of movies with very small budgets. As the budget increases, there are fewer movies, but the rating for these higher budget movies is skewed to higher ratings. At the high end of movie budgets (>$300,000,000), there aren't any movies rated below 6.0.
+As you can see from the graph, there is a positive relationship between adjusted budget and movie rating. The correlation coefficient is 0.274, indicating that there is a positive relationship, albeit not an overly strong one. There is an overabundance of movies with very small budgets. As the budget increases, there are fewer movies, but the rating for these higher budget movies is skewed to higher ratings. At the high end of movie budgets (>$300,000,000), there aren't any movies rated below 6.0.
 
 Using the same scatter plot as above, it will also be helpful to group movies based on their budget amounts, and looking at the average rating of each budget group. From looking at the plot above, I will consider low budget movies to be <$50M, medium budgets to be between $50M and $125M, higher budget movies to be between $125M and $225M, and blockbuster type movies to be >$225M.
 
@@ -73,7 +74,7 @@ budgets <- budgets %>%
   )) 
 
 group_means <- budgets %>% 
-  group_by(budget_group) %>% 
+  group_by(budget_group) %>%
   summarise(mean = mean(avg_vote)) %>% 
   arrange(mean)
 
@@ -85,20 +86,24 @@ block <- as.numeric(group_means[4,2])
 
 ggplot(budgets, aes(adj_budget, avg_vote, col=budget_group)) + 
   geom_point(alpha=0.5) +
-  geom_hline(yintercept=group_means$mean, size=1, col=c("mediumorchid2", "cyan3", "olivedrab3", "coral2")) +
+  geom_hline(yintercept=group_means$mean, size=1, col=c("#CA7AEE", "cyan3", "olivedrab3", "coral2")) +
   scale_color_discrete(name="Budget Group", limits = c(">$225M", "$125M - $225M", "$50M - $125M", "<$50M")) +
   labs(title = "Average Movie Rating by Budget Group",
        x="Inflation Adjusted Budget",
        y="Rating") +
   scale_x_continuous(labels=scales::dollar_format()) +
   theme_bw()
-  
 ```
 
 As you can see in the plot above, each successive budget group has a higher average movie rating. 
 
 ```{r}
 group_means
+
+group_means1 <- budgets %>% 
+  count(budget_group)
+
+group_means1
 ```
 
 
@@ -150,14 +155,10 @@ ggplot(revenue, aes(adj_revenue, avg_vote)) +
 cor(revenue$adj_revenue, revenue$avg_vote)
 ```
 
-As you can see, there are much fewer movies that we have both budget data and revenue data for. However, for the movies we do have both data points for, the correlation between revenue and movie ratings is almost identical to the relationship between budgets and movie ratings. There are again many movies with very small revenue figures, and the movies with revenue >$200M all have movie ratings over 7.0.
+As you can see, there are much fewer movies that we have both budget data and revenue data for. However, for the movies we do have both data points for, the correlation between revenue and movie ratings is very similar to the relationship between budgets and movie ratings. One reason for this is that there is a very strong correlation between budgets and earnings, so they both have similar relationships with the rating. In terms of revenue, there are again many movies with very small figures, and the movies with revenue >$200M all have movie ratings over 7.0.
 
 
 Overall, it is clear that movie ratings increase as movie budgets increase. There are some limitations with the data that may skew the results a bit here, particularly how there are so many movies with very low budgets, but there is no doubt a positive correlation. More money doesn't always mean a better movie, but the highest budget movies have, on average, the highest ratings.
-
-
-
-
 
 
 

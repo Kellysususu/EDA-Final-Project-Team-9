@@ -17,6 +17,7 @@ library(tidytext)
 library(ggplot2)
 library(textdata)
 library(assertr)
+library(scales)
 ```
 
 ```{r}
@@ -59,7 +60,9 @@ ggplot(count,aes(x=reorder(word,-n),y=n))+geom_bar(stat="identity",fill="#ffab40
 sentiments<-get_sentiments("nrc")
 df_sentiments<-des_words %>% left_join(sentiments)
 df_sentiments_filtered<-df_sentiments %>% filter(!is.na(sentiment))%>%
-group_by(sentiment)%>%summarise(n=n())
+group_by(sentiment)%>%summarise(n=n()) %>% mutate(percent=percent(round(n/sum(n),2)))
+
+
 
 #Change abbreviated labels
 options(scipen=10000)
@@ -67,7 +70,8 @@ options(scipen=10000)
 #Make plots
 df_sentiments_filtered
 df_sentiments_filtered %>%
-  ggplot(aes(x=reorder(sentiment,-n),y=n))+geom_bar(stat="identity",fill="#ffab40")+labs(title="Top rated Movies Description Sentiments",x="Words",y="Count")+theme_light()+theme(axis.text.x = element_text(angle=60,hjust=1))+geom_text(aes(label=n),col="white",vjust=1,lwd=4)+theme_classic()
+  ggplot(aes(x=reorder(sentiment,-n),y=n))+geom_histogram(stat="identity",fill="#ffab40")+labs(title="Top rated Movies Description Sentiments",x="Words",y="Count")+theme_light()+theme(axis.text.x = element_text(angle=60,hjust=1))+geom_text(aes(label=percent),col="white",vjust=1,lwd=4)+theme_classic()
+
 ```
 
 #Word Count of description in genres

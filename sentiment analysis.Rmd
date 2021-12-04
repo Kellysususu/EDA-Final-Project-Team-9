@@ -80,7 +80,8 @@ genre_data<-data %>%
   filter(country=="USA",avg_vote>8) %>%
   mutate(genre=strsplit(as.character(genre),",")) %>%
   unnest(genre) %>%
-  select(imdb_title_id,description,genre)
+  select(imdb_title_id,description,genre) %>%
+  mutate(genre=gsub(" ","",as.character(genre)))
 
 # Tokenize Data
 genre_words<-genre_data %>%
@@ -108,7 +109,7 @@ comedy_word<-genre_words %>%
 romance_word<-genre_words %>% 
   group_by(genre) %>%
   count(word,sort = TRUE) %>%
-  filter(genre==" Romance") %>%
+  filter(genre=="Romance") %>%
   head(10)
 
 
@@ -127,14 +128,21 @@ genre_word %>%
 
 # Most common words in Drama movie
 drama_word %>%
-  ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies") +theme_classic()+ylim(0,7)+geom_text(aes(label=n),col="white",vjust=1)
+  ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies") +theme_classic()+geom_text(aes(label=n),col="white",vjust=1)
 
 comedy_word %>%
-ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Comedy Movies") +theme_classic()+ylim(0,7)+geom_text(aes(label=n),col="white",vjust=1)
+ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Comedy Movies") +theme_classic()+geom_text(aes(label=n),col="white",vjust=1)
 
 romance_word %>%
-ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies") +ylim(0,7)+geom_text(aes(label=n),col="white",vjust=1,lwd=5)
+ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies")+geom_text(aes(label=n),col="white",vjust=1,lwd=5)+theme_classic()
   
 ```
 
+```{r}
+genre_words %>% 
+  group_by(genre) %>%
+  count(word,sort = TRUE) %>%
+  filter(genre=="Drama ") %>%
+  head(10)
+```
 

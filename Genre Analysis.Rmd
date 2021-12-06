@@ -67,6 +67,30 @@ avg_genre %>% ggplot(aes(x=reorder(genre,avg_vote), y=avg_vote) )+
   coord_flip()
 ```
 
+```{r}
+#genre_group <- mdf %>% 
+#  group_by(genre)
+reduced_genre <- mdf %>%
+  filter(genre==c("Drama","Comedy","Romance","Horror","Thriller","Action", "Crime", "Adventure","Mystery", "Sci-Fi"))
+reduced_genre <- reduced_genre %>% 
+  group_by(genre)
+ggplot(reduced_genre, aes(x=genre, y= avg_vote)) +
+  geom_violin(width=1,color="steelblue") +
+  geom_boxplot(width=0.2, color="grey", alpha=0.2) +
+  theme_bw() +
+  labs(
+    title = "Average Votes by Genres",
+    y = "Average Votes"
+  )
+```  
+
+```{r}
+ggplot(reduced_genre, aes(x=genre, y= avg_vote)) +
+  geom_point(aes(color=votes)) +
+  scale_colour_gradientn(colours = terrain.colors(5))
+
+
+```
 
 
 ```{r}

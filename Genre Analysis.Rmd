@@ -76,18 +76,28 @@ reduced_genre <- reduced_genre %>%
   group_by(genre)
 ggplot(reduced_genre, aes(x=genre, y= avg_vote)) +
   geom_violin(width=1,color="steelblue") +
-  geom_boxplot(width=0.2, color="grey", alpha=0.2) +
-  theme_bw() +
+  geom_boxplot(width=0.2, color="grey", alpha=0.7) +
   labs(
     title = "Average Votes by Genres",
-    y = "Average Votes"
-  )
+    y = "Average Votes",
+    x = "Genre"
+  )+
+  #theme(axis.text.y = element_text(angle = 45,vjust = 0.25)) + 
+  coord_flip()
 ```  
+
 
 ```{r}
 ggplot(reduced_genre, aes(x=genre, y= avg_vote)) +
   geom_point(aes(color=votes)) +
-  scale_colour_gradientn(colours = terrain.colors(5))
+  scale_colour_gradientn(colours = terrain.colors(5)) +
+  labs(
+    title = "Average Votes by Genres",
+    y = "Average Votes",
+    colour="Vote Counts"
+  )+
+  theme(axis.text.x = element_text(angle = 45,vjust = 0.25))
+
 
 
 ```
@@ -136,10 +146,21 @@ genre_highscore %>% ggplot(aes (x=reorder(genre,genre_desc$count), y=count) )+
 ```{r}
 library(plotly)
 genre_stack <- genre_highscore %>% left_join(genre_desc, by="genre")
-genre_stack <- genre_stack %>% mutate(low_count= count.y-count.x)
-plot_ly(data=genre_stack, x = ~genre, y = ~count.x, type = 'bar', name = 'Movies higher than 8.0') %>%
-    add_trace(y = ~count.y, name = 'Movies Lower than 8.0') %>%
-    layout(yaxis = list(title='Count'),barmode = 'stack')
+lowusa <- mdf %>% filter(avg_vote < 6.0)
+
+genre_low <- lowusa %>%
+  group_by(genre) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+genre_stack1 <- genre_stack %>% left_join(genre_low, by="genre")
+genre_stack2 <- genre_stack1 %>% mutate(middle_count= count.y-count.x-count)
+
+plot_ly(data=genre_stack2, x = ~genre, y = ~count.x, type = 'bar', name = 'Movies higher than 8.0') %>%
+    add_trace(y = ~count.y, name = 'Movies Lower than 6.0') %>%
+    add_trace(y = ~middle_count, name = 'Movies between 6.0 to 8.0') %>%
+    layout(yaxis = list(title='Count'),barmode = 'stack',legend = list(orientation = "h", 
+                     xanchor = "center",  # use center of legend as anchor
+                     x = 0.5,y=-0.6))    
 ```
 
 
@@ -184,47 +205,5 @@ year_genre %>%
     ggtitle("Average rating of four genres over the last 50 years") +
     ylab("Average Rating")
 ```
-
-
-
-
-average rating by sex
-
-```{r}
-dat <- read_csv("archive-2/IMDb ratings.csv")
-dat <- as.data.frame(dat)
-```
-
-
-
-
-female/  male vote which genre higher?
-```{r}
-sex <- dat %>% select("imdb_title_id", "females_allages_avg_vote", "males_allages_avg_vote")
-
-(sex <- cbind(sex, data[c("title","country", "genre", "avg_vote" )]))
-sex <- sex %>% filter(country == "USA")
-```
-
-```{r}
-sex <- sex %>% 
-    mutate(genre = strsplit(as.character(genre), ", ")) %>% 
-    unnest(genre)
-sex <- sex[complete.cases(sex),]
-
-(sex_genre <- sex %>% 
-  group_by(genre) %>%
-  summarise_at(.vars=vars(females_allages_avg_vote,males_allages_avg_vote), .funs=mean) )
-
-```
-
-```{r}
-(max(sex_genre$females_allages_avg_vote))
-max(sex_genre$males_allages_avg_vote)
-(arrange(sex_genre, -females_allages_avg_vote))
-(arrange(sex_genre, -males_allages_avg_vote))
-```
-
-
 
 

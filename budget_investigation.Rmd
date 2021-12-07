@@ -18,7 +18,7 @@ library(priceR)
 I will first load in the movie data. For this investigation, I will only be looking at movies made in the United States that have budget data in USD. I can also only analyze the movies that actually have data on their budget. 
 
 ```{r}
-movies <- read_csv("IMDb_movies.csv") %>%
+movies <- read.csv("IMDb movies.csv") %>%
   filter(str_detect(country, "USA") & str_detect(budget, "\\$") & budget != "")
 ```
 
@@ -26,7 +26,7 @@ This gives us 13,399 movies that have data on their budget. Next, I need to do s
 
 ```{r}
 budgets <- movies %>%
-  mutate(budget = as.numeric(gsub("\\$", "", budget)), duration = as.numeric(duration)) %>%
+  mutate(budget = as.numeric(gsub("\\$", "", budget)), duration = as.numeric(duration), year = as.numeric(year)) %>%
   select(imdb_title_id, original_title, year, budget, avg_vote, duration, worlwide_gross_income) %>%
   arrange(desc(budget))
 ```
@@ -36,8 +36,9 @@ When looking at historical data on money, its important to consider inflation ad
 
 ```{r}
 mean(budgets$year)
+min(budgets$year)
 ```
-The mean year for the movie data is 1994, so we definitely have data on a lot of old movies that need to have adjusted budgets.
+We have budget data on movies going back to 1912, and the mean year for the movie data is 1994, so we definitely have data on a lot of old movies that need to have adjusted budgets.
 
 ```{r}
 budgets <- budgets %>%
@@ -49,8 +50,8 @@ budgets <- budgets %>%
 ggplot(budgets, aes(adj_budget, avg_vote, lty = '0.274')) + 
   geom_point() + 
   geom_smooth(method="lm", se=FALSE,) +
-  labs(title = "Relationship between Budget and Movie Rating",
-       x="Inflation Adjusted Budget",
+  labs(title = "Relationship Between Budget and Movie Rating",
+       x="Inflation Adjusted Budget (2020 $)",
        y="Rating") +
   scale_x_continuous(labels=scales::dollar_format()) +
   theme_bw() +  
@@ -89,7 +90,7 @@ ggplot(budgets, aes(adj_budget, avg_vote, col=budget_group)) +
   geom_hline(yintercept=group_means$mean, size=1, col=c("#CA7AEE", "cyan3", "olivedrab3", "coral2")) +
   scale_color_discrete(name="Budget Group", limits = c(">$225M", "$125M - $225M", "$50M - $125M", "<$50M")) +
   labs(title = "Average Movie Rating by Budget Group",
-       x="Inflation Adjusted Budget",
+       x="Inflation Adjusted Budget (2020 $)",
        y="Rating") +
   scale_x_continuous(labels=scales::dollar_format()) +
   theme_bw()
@@ -114,14 +115,16 @@ budgets <- budgets %>%
   mutate(adj_budget_duration = adj_budget / duration) %>%
   arrange(desc(adj_budget_duration))
 
-ggplot(budgets, aes(adj_budget_duration, avg_vote)) + 
+ggplot(budgets, aes(adj_budget_duration, avg_vote, lty = '0.252')) + 
   geom_point() + 
   geom_smooth(method="lm", se=FALSE) +
-  labs(title = "Relationship between Duration Adjusted Budget and Movie Rating",
-       x="Inflation Adjusted Budget over Duration",
+  labs(title = "Relationship Between Duration Adjusted Budget and Movie Rating",
+       x="Inflation Adjusted Budget over Duration (2020 $)",
        y="Rating") +
   scale_x_continuous(labels=scales::dollar_format()) +
-  theme_bw()
+  theme_bw() +  
+  scale_linetype('Correlation') +
+  theme(legend.key.width = unit(2, 'cm'))
 
 cor(budgets$adj_budget_duration, budgets$avg_vote)
 ```
@@ -130,7 +133,7 @@ cor(budgets$adj_budget_duration, budgets$avg_vote)
 The relationship between movie budget and movie rating is actually slightly less after adjusting the budget to account for movie duration. There could be two reasons for this. One is that short films with low movie ratings now have much higher adjusted budgets, which caused the regression line to get pulled down to the right. The second reason may be that very long movies tend to have higher ratings, so their new adjusted budget is less than before, which pulls the left side of the regression line up. Both scenarios lead to a slightly flatter regression line, but even still, there is still a positive relationship between budget and movie rating.
 
 
-The last thing I will investigate is how box office performance relates to high movie ratings. Before, we looked at movie budgets, which, intuitively, has an actual effect on the popularity and quality of a movie. Now, I want to investigate the correlation between revenue and movie ratings. To do so, I need to perform similar data cleaning and filtering as before. I will also adjust the revene numbers for inflation.
+The last thing I will investigate is how box office performance relates to high movie ratings. Before, we looked at movie budgets, which, intuitively, has an actual effect on the popularity and quality of a movie. Now, I want to investigate the correlation between revenue and movie ratings. To do so, I need to perform similar data cleaning and filtering as before. I will also adjust the revenue numbers for inflation.
 
 ```{r}
 revenue <- budgets %>%
@@ -147,7 +150,7 @@ ggplot(revenue, aes(adj_revenue, avg_vote)) +
   geom_point() + 
   geom_smooth(method="lm", se=FALSE) +
   labs(title = "Relationship between Revenue and Movie Rating",
-       x="Inflation Adjusted Revenue Earnings",
+       x="Inflation Adjusted Revenue Earnings (2020 $)",
        y="Rating") +
   scale_x_continuous(labels=scales::dollar_format()) +
   theme_bw()

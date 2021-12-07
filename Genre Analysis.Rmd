@@ -1,0 +1,209 @@
+---
+title: "Genre"
+output: html_document
+author: "Zhuoyi Zhan"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Which genre has the highest release? Which genres are highest rated from year to year?
+Percentage of high-rating movie by genre? 8.0?
+the mean vote across the whole report (currently 6.90)
+21st century
+
+```{r, message=FALSE}
+library(tidyverse)
+library(readr)
+library(VIM)
+library(naniar)
+library(dplyr)
+library(ggplot2)
+library(mice)
+library(Zelig)
+library(gridExtra)
+library(tidyr)
+library(dplyr)
+```
+
+```{r}
+
+data <- read_csv("archive-2/IMDb movies.csv")
+data <- as.data.frame(data)
+usa <- data %>% filter(country == "USA")
+usa <- usa %>% arrange(-`avg_vote`)
+highusa <- usa %>% filter(avg_vote >= 7.5)
+(mean(usa$avg_vote))
+#(dim(highusa))
+```
+
+No missing data in genre and avg_vote
+```{r}
+n_miss(usa$genre)
+n_miss(usa$avg_vote)
+```
+```{r}
+head(usa)
+mdf <- usa %>% 
+    mutate(genre = strsplit(as.character(genre), ", ")) %>% 
+    unnest(genre)
+head(mdf)
+```
+
+```{r}
+
+avg_genre <- mdf %>% 
+  group_by(genre) %>%
+  summarise_at(.vars=vars(avg_vote), .funs=mean) 
+arrange(avg_genre, -avg_vote)
+
+avg_genre %>% ggplot(aes(x=reorder(genre,avg_vote), y=avg_vote) )+
+  geom_bar(stat = "identity", fill ="#ffab40") +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="Genre", y= "Average Rating", title="Average Rating of Movies By Genre") +
+  geom_text(label=sprintf("%0.2f",round(avg_genre$avg_vote,digits = 3)),position = position_dodge(width= 0.5), hjust = -0.5,size=2.5) + 
+  ylim(0,8) +
+  coord_flip()
+```
+
+```{r}
+#genre_group <- mdf %>% 
+#  group_by(genre)
+reduced_genre <- mdf %>%
+  filter(genre==c("Drama","Comedy","Romance","Horror","Thriller","Action", "Crime", "Adventure","Mystery", "Sci-Fi"))
+reduced_genre <- reduced_genre %>% 
+  group_by(genre)
+ggplot(reduced_genre, aes(x=genre, y= avg_vote)) +
+  geom_violin(width=1,color="steelblue") +
+  geom_boxplot(width=0.2, color="grey", alpha=0.7) +
+  labs(
+    title = "Average Votes by Genres",
+    y = "Average Votes",
+    x = "Genre"
+  )+
+  #theme(axis.text.y = element_text(angle = 45,vjust = 0.25)) + 
+  coord_flip()
+```  
+
+
+```{r}
+ggplot(reduced_genre, aes(x=genre, y= avg_vote)) +
+  geom_point(aes(color=votes)) +
+  scale_colour_gradientn(colours = terrain.colors(5)) +
+  labs(
+    title = "Average Votes by Genres",
+    y = "Average Votes",
+    colour="Vote Counts"
+  )+
+  theme(axis.text.x = element_text(angle = 45,vjust = 0.25))
+
+
+
+```
+
+
+```{r}
+genre_count <- mdf %>% group_by(genre) %>%tally()
+(genre_count <- arrange(genre_count, desc(n)))
+#genre_count %>% ggplot(aes(x=genre, y=n) )+ geom_col()
+genre_desc <- mdf %>%
+  group_by(genre) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  slice(1:21)
+genre_desc %>% ggplot(aes(x=reorder(genre,count), y=count) )+ geom_bar(stat = "identity",fill ="#ffab40") + theme(axis.text.x=element_text(angle=90)) +labs(x="Genre", y= "count", title="Most Produced Genres") +
+  geom_text(label=genre_desc$count, position = position_dodge(width= 0.5), hjust = -0.5,size=2.5)+
+  ylim(0,15000)+
+  coord_flip() 
+```
+
+```{r}
+(summary(usa$avg_vote))
+```
+
+mean vote of all movies before splitting the gneres is 5.556, after splitting is 5.62
+
+```{r}
+highusa <- usa %>% filter(avg_vote >= 8.0)
+ndf <- highusa %>% 
+    mutate(genre = strsplit(as.character(genre), ", ")) %>% 
+    unnest(genre)
+
+genre_highscore <- ndf %>%
+  group_by(genre) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+genre_highscore %>% ggplot(aes (x=reorder(genre,genre_desc$count), y=count) )+
+  geom_bar(stat = "identity", fill ="#ffab40") +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="Genre", y= "count", title="Movies Rated Higher Than 8.0") +geom_text(label=genre_highscore$count, position = position_dodge(width= 0.5), hjust = -0.5,size=2.5) + 
+  ylim(0,190)+
+  coord_flip()
+```
+
+
+```{r}
+library(plotly)
+genre_stack <- genre_highscore %>% left_join(genre_desc, by="genre")
+lowusa <- mdf %>% filter(avg_vote < 6.0)
+
+genre_low <- lowusa %>%
+  group_by(genre) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+genre_stack1 <- genre_stack %>% left_join(genre_low, by="genre")
+genre_stack2 <- genre_stack1 %>% mutate(middle_count= count.y-count.x-count)
+
+plot_ly(data=genre_stack2, x = ~genre, y = ~count.x, type = 'bar', name = 'Movies higher than 8.0') %>%
+    add_trace(y = ~count.y, name = 'Movies Lower than 6.0') %>%
+    add_trace(y = ~middle_count, name = 'Movies between 6.0 to 8.0') %>%
+    layout(yaxis = list(title='Count'),barmode = 'stack',legend = list(orientation = "h", 
+                     xanchor = "center",  # use center of legend as anchor
+                     x = 0.5,y=-0.6))    
+```
+
+
+
+
+```{r}
+highscore_percent <- genre_count %>%
+  left_join(genre_highscore, by="genre")
+
+
+
+```
+
+```{r}
+library(scales)
+highscore_percent <- as.data.frame(highscore_percent)
+highscore_percent <- highscore_percent %>% na.omit %>%
+    mutate(percent= count/n)
+
+highscore_percent %>% 
+  ggplot(aes(x=reorder(genre,percent), y=percent))+ 
+  geom_bar(stat = "identity", fill ="#ffab40",position = "dodge") +
+  theme(axis.text.x=element_text(angle=90)) +
+  labs(x="Genre", y= "Percent higher than 8.0", title="Percent of movies higher than 8.0 by genre") + geom_text(label=percent(highscore_percent$percent,.11),position = position_dodge(width= 0.5), hjust = -0.5,size=2.5) + 
+  ylim(0,0.06) +
+  coord_flip() 
+  
+```
+
+
+```{r}
+
+mdf50 <- mdf %>% filter(year >= 1970 & genre == c("Drama", "Comedy", "Animation", "Romance" ))
+
+year_genre <- mdf50 %>%                                 
+  group_by(genre, year) %>%
+  summarize(avg_vote_by_year=mean(avg_vote),.groups = 'drop')
+
+year_genre %>%
+  ggplot( aes(x=year, y=avg_vote_by_year, group=genre, color=genre)) +
+    geom_line() +
+    ggtitle("Average rating of four genres over the last 50 years") +
+    ylab("Average Rating")
+```
+
+

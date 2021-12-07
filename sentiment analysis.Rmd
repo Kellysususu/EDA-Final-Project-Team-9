@@ -17,6 +17,7 @@ library(tidytext)
 library(ggplot2)
 library(textdata)
 library(assertr)
+library(scales)
 ```
 
 ```{r}
@@ -59,7 +60,9 @@ ggplot(count,aes(x=reorder(word,-n),y=n))+geom_bar(stat="identity",fill="#ffab40
 sentiments<-get_sentiments("nrc")
 df_sentiments<-des_words %>% left_join(sentiments)
 df_sentiments_filtered<-df_sentiments %>% filter(!is.na(sentiment))%>%
-group_by(sentiment)%>%summarise(n=n())
+group_by(sentiment)%>%summarise(n=n()) %>% mutate(percent=percent(round(n/sum(n),2)))
+
+
 
 #Change abbreviated labels
 options(scipen=10000)
@@ -67,7 +70,8 @@ options(scipen=10000)
 #Make plots
 df_sentiments_filtered
 df_sentiments_filtered %>%
-  ggplot(aes(x=reorder(sentiment,-n),y=n))+geom_bar(stat="identity",fill="#ffab40")+labs(title="Top rated Movies Description Sentiments",x="Words",y="Count")+theme_light()+theme(axis.text.x = element_text(angle=60,hjust=1))+geom_text(aes(label=n),col="white",vjust=1,lwd=4)+theme_classic()
+  ggplot(aes(x=reorder(sentiment,-n),y=n))+geom_histogram(stat="identity",fill="#ffab40")+labs(title="Top rated Movies Description Sentiments",x="Words",y="Count")+theme_light()+theme(axis.text.x = element_text(angle=60,hjust=1))+geom_text(aes(label=percent),col="white",vjust=1,lwd=4)+theme_classic()
+
 ```
 
 #Word Count of description in genres
@@ -80,7 +84,8 @@ genre_data<-data %>%
   filter(country=="USA",avg_vote>8) %>%
   mutate(genre=strsplit(as.character(genre),",")) %>%
   unnest(genre) %>%
-  select(imdb_title_id,description,genre)
+  select(imdb_title_id,description,genre) %>%
+  mutate(genre=gsub(" ","",as.character(genre)))
 
 # Tokenize Data
 genre_words<-genre_data %>%
@@ -108,7 +113,7 @@ comedy_word<-genre_words %>%
 romance_word<-genre_words %>% 
   group_by(genre) %>%
   count(word,sort = TRUE) %>%
-  filter(genre==" Romance") %>%
+  filter(genre=="Romance") %>%
   head(10)
 
 
@@ -127,14 +132,21 @@ genre_word %>%
 
 # Most common words in Drama movie
 drama_word %>%
-  ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies") +theme_classic()+ylim(0,7)+geom_text(aes(label=n),col="white",vjust=1)
+  ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies") +theme_classic()+geom_text(aes(label=n),col="white",vjust=1)
 
 comedy_word %>%
-ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Comedy Movies") +theme_classic()+ylim(0,7)+geom_text(aes(label=n),col="white",vjust=1)
+ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Comedy Movies") +theme_classic()+geom_text(aes(label=n),col="white",vjust=1)
 
 romance_word %>%
-ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies") +ylim(0,7)+geom_text(aes(label=n),col="white",vjust=1,lwd=5)
+ggplot(aes(x=reorder(word,-n),n))+ geom_bar(fill="#ffab40",stat = "identity") +labs(x="Description word", y= "count", title="Most common despription words in Drama Movies")+geom_text(aes(label=n),col="white",vjust=1,lwd=5)+theme_classic()
   
 ```
 
+```{r}
+genre_words %>% 
+  group_by(genre) %>%
+  count(word,sort = TRUE) %>%
+  filter(genre=="Drama ") %>%
+  head(10)
+```
 
